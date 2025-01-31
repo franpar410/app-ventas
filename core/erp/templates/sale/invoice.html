@@ -42,7 +42,7 @@
 </p>
 <p>
     <b>FACTURA:</b> {{ sale.id }}<br>
-    <b>FECHA DE VENTA:</b> {{ sale.date_joined }}<br>
+    <b>FECHA DE VENTA:</b> {{ sale.date_joined|date:"d/m/Y" }}<br>
     <b>CLIENTE:</b> {{ sale.cli.names|upper }}<br>
     <b>DNI:</b> {{ sale.cli.dni }}<br>
 </p>
@@ -86,7 +86,7 @@
         <th>****GRACIAS POR SU COMPRA****</th>
     </tr>
     <tr>
-        <th>NO SE ACEPTAN CAMBIOS NI DEVOLUCIONES!</th>
+        <th>####</th>
     </tr>
     </thead>
 </table>
