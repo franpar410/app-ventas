@@ -90,7 +90,6 @@ class Sale(models.Model):
 
     def __str__(self):
         return self.cli.names
-        return self.date_joined.strftime('%d/%m/%Y')
 
     def toJSON(self):
         item = model_to_dict(self)
