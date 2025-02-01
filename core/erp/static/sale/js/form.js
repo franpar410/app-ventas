@@ -148,8 +148,8 @@ $(function () {
     });
 
     $('#date_joined').datetimepicker({
-        format: 'YYYY-MM-DD',
-        date: moment().format("YYYY-MM-DD"),
+        format: 'DD-MM-YYYY',
+        date: moment().format("DD-MM-YYYY"),
         locale: 'es',
         //minDate: moment().format("YYYY-MM-DD")
     });
@@ -166,7 +166,7 @@ $(function () {
     }).on('change', function () {
         vents.calculate_invoice();
     })
-          .val(0.00);
+        .val(0.00);
 /*       .val(0.12);    */
 
     // search clients
