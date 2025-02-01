@@ -158,14 +158,16 @@ $(function () {
         min: 0,
         max: 100,
         step: 0.01,
-        decimals: 2,
+/*      decimals: 2,*/
+		decimals: 0,
         boostat: 5,
         maxboostedstep: 10,
         postfix: '%'
     }).on('change', function () {
         vents.calculate_invoice();
     })
-        .val(0.12);
+          .val(0.00);
+/*       .val(0.12);    */
 
     // search clients
 

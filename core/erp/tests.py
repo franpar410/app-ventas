@@ -26,7 +26,8 @@ for m in range(0, 6):
             det.save()
 
         vent.subtotal = vent.detsale_set.all().aggregate(r=Coalesce(Sum('subtotal'), 0)).get('r')
-        vent.iva = float(vent.subtotal) * 0.12
+ #       vent.iva = float(vent.subtotal) * 0.12
+         vent.iva = float(vent.subtotal) * 0.00
         vent.total = float(vent.subtotal) + float(vent.iva)
         vent.save()
 print('Terminado')
