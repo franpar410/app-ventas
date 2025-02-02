@@ -30,7 +30,7 @@ class Product(models.Model):
     cat = models.ForeignKey(Category, on_delete=models.CASCADE, verbose_name='Categoría')
     image = models.ImageField(upload_to='product/%Y/%m/%d', null=True, blank=True, verbose_name='Imagen')
     stock = models.IntegerField(default=0, verbose_name='Stock')
-    pvp = models.DecimalField(default=0.00, max_digits=9, decimal_places=2, verbose_name='Precio de venta')
+    pvp = models.DecimalField(default=0, max_digits=9, decimal_places=0, verbose_name='Precio de venta')
 
     def __str__(self):
         return self.name
@@ -84,9 +84,9 @@ class Client(models.Model):
 class Sale(models.Model):
     cli = models.ForeignKey(Client, on_delete=models.CASCADE)
     date_joined = models.DateField(default=datetime.now)
-    subtotal = models.DecimalField(default=0.00, max_digits=9, decimal_places=2)
-    iva = models.DecimalField(default=0.00, max_digits=9, decimal_places=2)
-    total = models.DecimalField(default=0.00, max_digits=9, decimal_places=2)
+    subtotal = models.DecimalField(default=0, max_digits=9, decimal_places=0)
+    iva = models.DecimalField(default=0.00, max_digits=9, decimal_places=0)
+    total = models.DecimalField(default=0, max_digits=9, decimal_places=0)
 
     def __str__(self):
         return self.cli.names
@@ -116,9 +116,9 @@ class Sale(models.Model):
 class DetSale(models.Model):
     sale = models.ForeignKey(Sale, on_delete=models.CASCADE)
     prod = models.ForeignKey(Product, on_delete=models.CASCADE)
-    price = models.DecimalField(default=0.00, max_digits=9, decimal_places=2)
+    price = models.DecimalField(default=0, max_digits=9, decimal_places=0)
     cant = models.IntegerField(default=0)
-    subtotal = models.DecimalField(default=0.00, max_digits=9, decimal_places=2)
+    subtotal = models.DecimalField(default=0, max_digits=9, decimal_places=0)
 
     def __str__(self):
         return self.prod.name

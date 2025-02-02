@@ -72,7 +72,7 @@ var vents = {
                     class: 'text-center',
                     orderable: false,
                     render: function (data, type, row) {
-                        return '$' + parseFloat(data).toFixed(2);
+                        return 'Gs.&nbsp;' + parseFloat(data).toFixed(0);
                     }
                 },
                 {
@@ -88,7 +88,7 @@ var vents = {
                     class: 'text-center',
                     orderable: false,
                     render: function (data, type, row) {
-                        return '$' + parseFloat(data).toFixed(2);
+                        return 'Gs.&nbsp;' + parseFloat(data).toFixed(0);
                     }
                 },
             ],
@@ -148,8 +148,8 @@ $(function () {
     });
 
     $('#date_joined').datetimepicker({
-        format: 'DD-MM-YYYY',
-        date: moment().format("DD-MM-YYYY"),
+        format: 'YYYY-MM-DD',
+        date: moment().format("YYYY-MM-DD"),
         locale: 'es',
         //minDate: moment().format("YYYY-MM-DD")
     });
@@ -158,8 +158,7 @@ $(function () {
         min: 0,
         max: 100,
         step: 0.01,
-/*      decimals: 2,*/
-		decimals: 0,
+        decimals: 2,
         boostat: 5,
         maxboostedstep: 10,
         postfix: '%'
@@ -328,7 +327,7 @@ $(function () {
                     class: 'text-center',
                     orderable: false,
                     render: function (data, type, row) {
-                        return '$' + parseFloat(data).toFixed(2);
+                        return 'Gs.&nbsp;' + parseFloat(data).toFixed(0);
                     }
                 },
                 {
