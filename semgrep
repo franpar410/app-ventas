@@ -1,0 +1,10 @@
+pipeline {
+    agent any
+    stages {
+        stage('Semgrep Scan') {
+            steps {
+                sh 'semgrep --config auto'
+            }
+        }
+    }
+}
