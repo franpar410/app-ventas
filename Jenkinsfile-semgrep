@@ -1,0 +1,84 @@
+pipeline {
+    agent any
+
+    triggers {
+        githubPush()
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                git branch: 'main', url: 'https://github.com/franpar410/app-ventas.git'
+            }
+        }
+
+        stage('Setup Python Environment') {
+            steps {
+                sh 'python3 -m venv venv'
+                sh '. venv/bin/activate && pip install -r requirements.txt || echo "No requirements.txt"'
+            }
+        }
+
+        stage('Build') {
+            steps {
+                echo 'Este es un build de prueba'
+                sh 'echo "Hola desde Jenkins!"'
+            }
+        }
+
+        /* ------------------------------ */
+        /* 🔍 Nuevo Stage: SEMGREP en Docker */
+        /* ------------------------------ */
+        stage('Static Code Analysis (Semgrep)') {
+            agent {
+                docker {
+                    image 'returntocorp/semgrep:latest'   // Imagen oficial de Semgrep
+                    args '-v $WORKSPACE:/src'             // Monta el workspace de Jenkins en /src
+                }
+            }
+            steps {
+                script {
+                    sh '''
+                        echo "📦 Ejecutando análisis estático con Semgrep dentro de contenedor Docker..."
+                        mkdir -p reports
+                        cd /src
+                        
+                        # Ejecutar análisis
+                        semgrep --config auto --json > reports/semgrep-report.json || true
+                        semgrep --config auto --sarif > reports/semgrep-report.sarif || true
+                    '''
+                }
+            }
+            post {
+                always {
+                    echo '📄 Archivando reportes de Semgrep...'
+                    archiveArtifacts artifacts: 'reports/*.json, reports/*.sarif', fingerprint: true
+                }
+                failure {
+                    echo '❌ Semgrep encontró vulnerabilidades críticas.'
+                }
+            }
+        }
+
+        stage('Push to Registry (optional)') {
+            when {
+                expression { return false }
+            }
+            steps {
+                sh 'echo "Pushing to Docker Registry..."'
+            }
+        }
+
+        stage('Deploy') {
+            steps {
+                sh 'echo "Deploying to environment..."'
+            }
+        }
+    }
+
+    post {
+        always {
+            echo 'Pipeline finalizado.'
+        }
+    }
+}
