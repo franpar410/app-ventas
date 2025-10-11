@@ -43,19 +43,21 @@ pipeline {
                     args '-v $WORKSPACE:/src'             // Monta el workspace de Jenkins en /src
                 }
             }
-            steps {
-                script {
-                    sh '''
-                        echo "📦 Ejecutando análisis estático con Semgrep dentro de contenedor Docker..."
-                        mkdir -p reports
-                        cd /src
-                        
-                        # Ejecutar análisis
-                        semgrep --config auto --json > reports/semgrep-report.json || true
-                        semgrep --config auto --sarif > reports/semgrep-report.sarif || true
-                    '''
-                }
+
+            script {
+                echo '📦 Ejecutando análisis estático con Semgrep dentro de contenedor Docker...'
+                
+                // Crear carpeta de reportes en el workspace
+                sh '''
+                    mkdir -p $WORKSPACE/reports
+                    docker run --rm -v $WORKSPACE:/src -w /src returntocorp/semgrep:latest \
+                        semgrep --config auto --json --output reports/semgrep-report.json || true
+                    docker run --rm -v $WORKSPACE:/src -w /src returntocorp/semgrep:latest \
+                        semgrep --config auto --sarif --output reports/semgrep-report.sarif || true
+                '''
             }
+
+
             post {
                 always {
                     echo '📄 Archivando reportes de Semgrep...'
