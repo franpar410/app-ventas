@@ -3,9 +3,6 @@ pipeline {
     
     triggers {
         pollSCM('H/2 * * * *')
-    }
-
-    triggers {
         githubPush()
     }
 
@@ -26,7 +23,7 @@ pipeline {
         stage('Build') {
             steps {
                 echo 'Este es un build de prueba'
-                sh 'echo "Hola desde Jenkins!"'
+                sh 'echo "Hola desde Jenkins..!"'
             }
         }
 
