@@ -1,3 +1,4 @@
+
 pipeline {
     agent any
 
@@ -12,19 +13,18 @@ pipeline {
             }
         }
 
-    stage('Setup Python Environment') {
-        agent any
-        steps {
-            sh '''
-                docker run --rm -v $PWD:/src -w /src python:3.11 bash -c "
-                    python3 -m venv venv
-                    . venv/bin/activate
-                    pip install -r requirements.txt || echo 'No requirements.txt'
-                "
-            '''
+        stage('Setup Python Environment') {
+            agent any
+            steps {
+                sh '''
+                    docker run --rm -v $PWD:/src -w /src python:3.11 bash -c "
+                        python3 -m venv venv
+                        . venv/bin/activate
+                        pip install -r requirements.txt || echo 'No requirements.txt'
+                    "
+                '''
+            }
         }
-    }
-
 
         stage('Build') {
             steps {
@@ -34,13 +34,13 @@ pipeline {
         }
 
         /* ------------------------------ */
-        /* 🔍 Nuevo Stage: SEMGREP en Docker */
+        /* 🔍 Static Code Analysis (Semgrep) */
         /* ------------------------------ */
         stage('Static Code Analysis (Semgrep)') {
             agent {
                 docker {
                     image 'returntocorp/semgrep:latest'   // Imagen oficial de Semgrep
-                    args '-v $WORKSPACE:/src'             // Monta el workspace de Jenkins en /src
+                    args '-v $WORKSPACE:/src'             // Monta el workspace en el contenedor
                 }
             }
 
@@ -48,21 +48,22 @@ pipeline {
                 script {
                     sh '''
                         echo "📦 Ejecutando análisis estático con Semgrep dentro de contenedor Docker..."
-                        mkdir -p reports
+
+                        # Crear carpeta de reportes en la ruta del workspace
+                        mkdir -p $WORKSPACE/reports
                         cd /src
                         
-                        # Ejecutar análisis
-                        semgrep --config auto --json > reports/semgrep-report.json || true
-                        semgrep --config auto --sarif > reports/semgrep-report.sarif || true
+                        # Ejecutar análisis y generar reportes
+                        semgrep --config auto --json --output $WORKSPACE/reports/semgrep-report.json || true
+                        semgrep --config auto --sarif --output $WORKSPACE/reports/semgrep-report.sarif || true
                     '''
                 }
             }
 
-
             post {
                 always {
                     echo '📄 Archivando reportes de Semgrep...'
-                    archiveArtifacts artifacts: 'reports/*.json, reports/*.sarif', fingerprint: true
+                    archiveArtifacts artifacts: 'reports/*.json, reports/*.sarif', fingerprint: true, allowEmptyArchive: true
                 }
                 failure {
                     echo '❌ Semgrep encontró vulnerabilidades críticas.'
