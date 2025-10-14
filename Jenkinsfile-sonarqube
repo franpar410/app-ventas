@@ -139,17 +139,17 @@ pipeline {
         }
     }
 
-    post {
-        always {
-            node {
-                script {
-                    echo '🧹 Deteniendo contenedor de SonarQube...'
-                    sh 'docker rm -f ${SONARQUBE_CONTAINER} || true'
-                }
-            }
+post {
+    always {
+        agent any
+        steps {
+            echo '🧹 Deteniendo contenedor de SonarQube...'
+            sh 'docker rm -f ${SONARQUBE_CONTAINER} || true'
             echo '🏁 Pipeline finalizado.'
         }
     }
+}
+
 
 
 }
