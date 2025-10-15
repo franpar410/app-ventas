@@ -46,14 +46,6 @@ pipeline {
                                 --ignore-unfixed
                         '''
 
-                        // Mostrar resultados legibles
-                        sh 'trivy image ${IMAGE_NAME}:${IMAGE_TAG} --severity ${SEVERITY} --exit-code 0 --ignore-unfixed'
-
-                        // Contar vulnerabilidades encontradas
-                        def vulnCount = sh(
-                            script: "jq '.Results[].Vulnerabilities | length' trivy-report.json | awk '{s+=$1} END {print s}'",
-                            returnStdout: true
-                        ).trim()
 
                         if (vulnCount.toInteger() > 0) {
                             echo "⚠️ Se encontraron ${vulnCount} vulnerabilidades de severidad ${SEVERITY}."
