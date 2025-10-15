@@ -1,0 +1,79 @@
+pipeline {
+    agent any
+    stages {
+        stage('SAST-Trivy') {
+            agent {
+                docker {
+                    image 'aquasec/trivy:latest'
+                    args '-u root'
+                }
+            }
+            steps {
+                script {
+                    // Definir el umbral de severidad (puedes cambiarlo: UNKNOWN, LOW, MEDIUM, HIGH, CRITICAL)
+                    def severityLevel = "HIGH"
+
+                    // Escaneo del código fuente (también se puede usar "image" para analizar imágenes docker)
+                    sh '''
+                        echo "Ejecutando análisis de vulnerabilidades con Trivy..."
+                        trivy fs --security-checks vuln,config \
+                                 --severity ${severityLevel},CRITICAL \
+                                 --format json \
+                                 --output trivy-report.json \
+                                 --exit-code 0 . || true
+                    '''
+                    
+                    // Generar salida legible en consola
+                    sh 'trivy fs --security-checks vuln,config --severity ${severityLevel},CRITICAL --exit-code 0 .'
+
+                    // Analizar si hay vulnerabilidades graves
+                    def vulnCount = sh(script: "jq '.Results[].Vulnerabilities | length' trivy-report.json | awk '{s+=$1} END {print s}'", returnStdout: true).trim()
+
+                    if (vulnCount.toInteger() > 0) {
+                        echo "⚠️ Se encontraron ${vulnCount} vulnerabilidades de severidad ${severityLevel} o superior."
+                        // Puedes elegir una de las siguientes dos opciones:
+                        // 1️⃣ No bloquear el pipeline (solo marcar como inestable)
+                        unstable("Vulnerabilidades detectadas por Trivy")
+                        // 2️⃣ Bloquear el pipeline (descomenta la línea de abajo)
+                        // error("Build bloqueado por vulnerabilidades críticas detectadas")
+                    } else {
+                        echo "✅ No se encontraron vulnerabilidades críticas."
+                    }
+                }
+            }
+        }
+
+        stage('Compilation') {
+            agent {
+                docker { image 'php:8.2-cli' }
+            }
+            steps {
+                sh 'echo "Compilando..."'
+            }
+        }
+
+        stage('Build') {
+            agent {
+                docker { image 'php:8.2-cli' }
+            }
+            steps {
+                sh 'echo "docker build -t my-php-app ."'
+            }
+        }
+
+        stage('Deploy') {
+            agent {
+                docker { image 'php:8.2-cli' }
+            }
+            steps {
+                sh 'echo "docker run my-php-app ."'
+            }
+        }
+    }
+
+    post {
+        always {
+            archiveArtifacts artifacts: 'trivy-report.json', fingerprint: true
+        }
+    }
+}
