@@ -1,6 +1,10 @@
-
 pipeline {
     agent any
+
+    environment {
+        FAIL_ON_SEVERITY = 'HIGH'   // Cambia a CRITICAL, HIGH, MEDIUM o LOW según tu política
+        AUTO_REMEDIATE   = 'false'  // true = intentar remediar vulnerabilidades
+    }
 
     triggers {
         githubPush()
@@ -14,7 +18,6 @@ pipeline {
         }
 
         stage('Setup Python Environment') {
-            agent any
             steps {
                 sh '''
                     docker run --rm -v $PWD:/src -w /src python:3.11 bash -c "
@@ -28,7 +31,7 @@ pipeline {
 
         stage('Build') {
             steps {
-                echo 'Este es un build de prueba'
+                echo '🏗️  Este es un build de prueba'
                 sh 'echo "Hola desde Jenkins!"'
             }
         }
@@ -39,8 +42,8 @@ pipeline {
         stage('Static Code Analysis (Semgrep)') {
             agent {
                 docker {
-                    image 'returntocorp/semgrep:latest'   // Imagen oficial de Semgrep
-                    args '-v $WORKSPACE:/src'             // Monta el workspace en el contenedor
+                    image 'returntocorp/semgrep:latest'
+                    args '-v $WORKSPACE:/src'
                 }
             }
 
@@ -49,14 +52,74 @@ pipeline {
                     sh '''
                         echo "📦 Ejecutando análisis estático con Semgrep dentro de contenedor Docker..."
 
-                        # Crear carpeta de reportes en la ruta del workspace
                         mkdir -p $WORKSPACE/reports
                         cd /src
-                        
-                        # Ejecutar análisis y generar reportes
+
+                        # Ejecutar análisis
                         semgrep --config auto --json --output $WORKSPACE/reports/semgrep-report.json || true
                         semgrep --config auto --sarif --output $WORKSPACE/reports/semgrep-report.sarif || true
                     '''
+
+                    // Analizar resultados (bloquear pipeline según severidad)
+                    def reportFile = "${env.WORKSPACE}/reports/semgrep-report.json"
+                    if (fileExists(reportFile)) {
+                        def findings = readJSON file: reportFile
+                        def critical = 0
+                        def high = 0
+                        def medium = 0
+                        def low = 0
+
+                        // Clasificar vulnerabilidades por severidad
+                        findings.results.each { r ->
+                            def sev = r.extra.severity ?: 'LOW'
+                            switch (sev.toUpperCase()) {
+                                case 'CRITICAL': critical++; break
+                                case 'HIGH': high++; break
+                                case 'MEDIUM': medium++; break
+                                case 'LOW': low++; break
+                            }
+                        }
+
+                        echo "🔎 Resultados Semgrep → CRITICAL: ${critical}, HIGH: ${high}, MEDIUM: ${medium}, LOW: ${low}"
+
+                        // Política de bloqueo según FAIL_ON_SEVERITY
+                        def shouldFail = false
+                        switch (env.FAIL_ON_SEVERITY.toUpperCase()) {
+                            case 'CRITICAL':
+                                shouldFail = (critical > 0)
+                                break
+                            case 'HIGH':
+                                shouldFail = (critical > 0 || high > 0)
+                                break
+                            case 'MEDIUM':
+                                shouldFail = (critical > 0 || high > 0 || medium > 0)
+                                break
+                            case 'LOW':
+                                shouldFail = (critical > 0 || high > 0 || medium > 0 || low > 0)
+                                break
+                        }
+
+                        if (shouldFail) {
+                            error("🚨 Se encontraron vulnerabilidades de nivel ${env.FAIL_ON_SEVERITY} o superior. Bloqueando pipeline.")
+                        } else {
+                            echo "✅ No se encontraron vulnerabilidades de nivel ${env.FAIL_ON_SEVERITY} o superior."
+                        }
+                    } else {
+                        echo "⚠️ No se encontró el archivo de reporte de Semgrep. Continuando sin bloqueo."
+                    }
+
+                    // Opcional: remediación automática (experimental)
+                    if (env.AUTO_REMEDIATE.toBoolean()) {
+                        echo "🛠️ Intentando aplicar remediaciones automáticas..."
+                        sh '''
+                            # Semgrep puede sugerir fixes con la bandera --autofix (solo en algunas reglas)
+                            cd /src
+                            semgrep --config auto --autofix || true
+                        '''
+                        echo "✅ Remediación completada (si aplicaba)."
+                    } else {
+                        echo "ℹ️ Remediación automática desactivada."
+                    }
                 }
             }
 
@@ -65,31 +128,22 @@ pipeline {
                     echo '📄 Archivando reportes de Semgrep...'
                     archiveArtifacts artifacts: 'reports/*.json, reports/*.sarif', fingerprint: true, allowEmptyArchive: true
                 }
-                failure {
-                    echo '❌ Semgrep encontró vulnerabilidades críticas.'
-                }
             }
         }
 
         stage('Push to Registry (optional)') {
-            when {
-                expression { return false }
-            }
-            steps {
-                sh 'echo "Pushing to Docker Registry..."'
-            }
+            when { expression { return false } }
+            steps { sh 'echo "Pushing to Docker Registry..."' }
         }
 
         stage('Deploy') {
-            steps {
-                sh 'echo "Deploying to environment..."'
-            }
+            steps { sh 'echo "Deploying to environment..."' }
         }
     }
 
     post {
         always {
-            echo 'Pipeline finalizado.'
+            echo '🏁 Pipeline finalizado.'
         }
     }
 }
