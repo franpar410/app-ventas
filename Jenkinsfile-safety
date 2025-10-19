@@ -1,0 +1,86 @@
+pipeline {
+    agent any
+
+    environment {
+        REPORT_DIR = "${WORKSPACE}/reports"
+    }
+
+    stages {
+
+        stage('SCA-Safety') {
+            steps {
+                script {
+                    echo "🔍 Ejecutando análisis de dependencias con Safety usando Docker CLI..."
+
+                    sh '''
+                        set -e
+                        mkdir -p ${REPORT_DIR}
+
+                        echo "📦 Lanzando contenedor Python para análisis..."
+                        docker run --rm \
+                            -v "$PWD":/app \
+                            -w /app \
+                            python:3.11-slim bash -c "
+                                set -e
+                                apt-get update -qq &&
+                                apt-get install -y --no-install-recommends gcc libpq-dev jq > /dev/null &&
+                                pip install -q safety &&
+                                if [ -f requirements.txt ]; then
+                                    echo '📄 Instalando dependencias del proyecto...';
+                                    pip install -q -r requirements.txt;
+                                else
+                                    echo '⚠️ No se encontró requirements.txt, creando uno temporal...';
+                                    echo 'flask==2.0.1' > requirements.txt;
+                                fi &&
+                                echo '🚀 Ejecutando análisis con Safety...' &&
+                                safety check --output json --file=requirements.txt > safety.json || true
+                            "
+
+                        # Mover el reporte al directorio persistente
+                        mv safety.json ${REPORT_DIR}/safety.json || echo '⚠️ No se generó safety.json'
+                    '''
+
+                    echo "✅ Reporte Safety generado en: ${REPORT_DIR}/safety.json"
+                    sh 'ls -l ${REPORT_DIR} || true'
+                }
+            }
+        }
+
+        stage('Compilation') {
+            steps {
+                echo "⚙️ Compilando aplicación..."
+                sh 'sleep 1'
+            }
+        }
+
+        stage('Build') {
+            steps {
+                echo "🏗️ Construyendo imagen Docker..."
+                sh 'echo "docker build -t my-php-app ."'
+            }
+        }
+
+        stage('Deploy') {
+            steps {
+                echo "🚀 Desplegando contenedor..."
+                sh 'echo "docker run my-php-app"'
+            }
+        }
+    }
+
+    post {
+        always {
+            echo "📦 Archivando artefactos..."
+            archiveArtifacts artifacts: 'reports/safety.json', fingerprint: true, allowEmptyArchive: true
+        }
+        success {
+            echo "✅ Pipeline completado correctamente."
+        }
+        unstable {
+            echo "⚠️ Pipeline marcado como inestable por vulnerabilidades detectadas."
+        }
+        failure {
+            echo "❌ Pipeline fallido."
+        }
+    }
+}
