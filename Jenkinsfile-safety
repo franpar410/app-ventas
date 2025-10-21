@@ -73,10 +73,8 @@ pipeline {
 
     post {
         always {
-            node { // 🔧 Importante: asegurar contexto de workspace
-                echo "📦 Archivando artefactos..."
-                archiveArtifacts artifacts: 'reports/safety.json', fingerprint: true, allowEmptyArchive: true
-            }
+            echo "📦 Archivando artefactos..."
+            archiveArtifacts artifacts: 'reports/safety.json', fingerprint: true, allowEmptyArchive: true
         }
         success {
             echo "✅ Pipeline completado correctamente."
