@@ -40,7 +40,6 @@ pipeline {
                                 safety check --project 'Jenkins Safety Scan' --upload --output json --file=requirements.txt > safety.json || true
                             "
 
-                        # Mover el reporte al directorio persistente
                         mv safety.json ${REPORT_DIR}/safety.json || echo '⚠️ No se generó safety.json'
                     '''
 
@@ -74,8 +73,10 @@ pipeline {
 
     post {
         always {
-            echo "📦 Archivando artefactos..."
-            archiveArtifacts artifacts: 'reports/safety.json', fingerprint: true, allowEmptyArchive: true
+            node { // 🔧 Importante: asegurar contexto de workspace
+                echo "📦 Archivando artefactos..."
+                archiveArtifacts artifacts: 'reports/safety.json', fingerprint: true, allowEmptyArchive: true
+            }
         }
         success {
             echo "✅ Pipeline completado correctamente."
