@@ -3,14 +3,15 @@ pipeline {
 
     environment {
         REPORT_DIR = "${WORKSPACE}/reports"
+        SAFETY_API_KEY = credentials('safety-api-key') // ID del token en Jenkins Credentials
     }
 
     stages {
 
-        stage('SCA-Safety') {
+        stage('SCA - Safety Security Scan') {
             steps {
                 script {
-                    echo "🔍 Ejecutando análisis de dependencias con Safety usando Docker CLI..."
+                    echo "🔍 Ejecutando análisis de dependencias con Safety (Docker + API)..."
 
                     sh '''
                         set -e
@@ -18,6 +19,7 @@ pipeline {
 
                         echo "📦 Lanzando contenedor Python para análisis..."
                         docker run --rm \
+                            -e SAFETY_API_KEY=${SAFETY_API_KEY} \
                             -v "$PWD":/app \
                             -w /app \
                             python:3.11-slim bash -c "
@@ -25,6 +27,8 @@ pipeline {
                                 apt-get update -qq &&
                                 apt-get install -y --no-install-recommends gcc libpq-dev jq > /dev/null &&
                                 pip install -q safety &&
+                                echo '🔐 Autenticando en Safety Cloud...' &&
+                                safety auth login --api-key \$SAFETY_API_KEY &&
                                 if [ -f requirements.txt ]; then
                                     echo '📄 Instalando dependencias del proyecto...';
                                     pip install -q -r requirements.txt;
@@ -32,8 +36,8 @@ pipeline {
                                     echo '⚠️ No se encontró requirements.txt, creando uno temporal...';
                                     echo 'flask==2.0.1' > requirements.txt;
                                 fi &&
-                                echo '🚀 Ejecutando análisis con Safety...' &&
-                                safety check --output json --file=requirements.txt > safety.json || true
+                                echo '🚀 Ejecutando análisis con Safety y subiendo resultados...' &&
+                                safety check --project 'Jenkins Safety Scan' --upload --output json --file=requirements.txt > safety.json || true
                             "
 
                         # Mover el reporte al directorio persistente
