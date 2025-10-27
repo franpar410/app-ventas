@@ -1,2 +1,130 @@
-429: Too Many Requests
-For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service).
+pipeline {
+    agent any
+
+    environment {
+        TRUFFLE_IMAGE = 'trufflesecurity/trufflehog:latest'
+        TRUFFLE_REPORT = 'trufflehog_report.json'
+        WORK_DIR = "${WORKSPACE}"
+    }
+
+    stages {
+
+        stage('Preparación - limpieza') {
+            steps {
+                echo "Workspace: ${WORKSPACE}"
+                sh '''
+                    rm -rf .trufflehog_test_repo
+                    rm -f ${TRUFFLE_REPORT}
+                '''
+            }
+        }
+
+        stage('Checkout (si aplica)') {
+            steps {
+                echo "Si quieres escanear un repo real, descomenta checkout scm"
+               // checkout scm
+            }
+        }
+
+        stage('Crear repo de prueba con/ sin secreto (opcional)') {
+            steps {
+                script {
+                    sh '''
+                        mkdir -p .trufflehog_test_repo
+                        cd .trufflehog_test_repo
+                        git init
+                        git config user.email "jenkins@example.com"
+                        git config user.name "Jenkins Bot"
+
+                        echo "archivo normal sin secreto" > README.md
+                        git add README.md
+                        git commit -m "init"
+                    '''
+                    echo "Repositorio de prueba creado en .trufflehog_test_repo"
+                }
+            }
+        }
+
+        stage('Insertar secreto a propósito (opcional)') {
+            steps {
+                script {
+                    sh '''
+                        cd .trufflehog_test_repo
+                        echo "api_key = AKIAFAKEEXAMPLE123456" > secret.txt
+                        git add secret.txt
+                        git commit -m "add fake secret for trufflehog test"
+                        git log --oneline -n 3
+                    '''
+                    echo "Secreto de prueba añadido al repo local"
+                }
+            }
+        }
+
+        stage('Scan con TruffleHog (stage propio)') {
+            steps {
+                script {
+                    // Confirmamos que el repo exista
+                    sh 'ls -la .trufflehog_test_repo'
+
+                    // 🔧 Ejecutamos trufflehog en contenedor Docker (comillas simples -> evita error Groovy)
+                    sh '''
+                        set -o pipefail
+                        docker run --rm \
+                          -v $(pwd):/workspace \
+                          -w /workspace \
+                          trufflesecurity/trufflehog:latest \
+                          filesystem --json /workspace/.trufflehog_test_repo > trufflehog_report.json || true
+                    '''
+
+                    echo "TruffleHog ejecutado, output en trufflehog_report.json"
+                }
+            }
+        }
+
+        stage('Analizar reporte y decidir resultado') {
+            steps {
+                script {
+                    def findings = 0
+                    try {
+                        findings = sh(script: "grep -c 'DetectorType' trufflehog_report.json || true", returnStdout: true).trim()
+                    } catch (err) {
+                        echo "No se pudo leer el reporte JSON: ${err}"
+                    }
+                    echo "Cantidad de hallazgos detectados: ${findings}"
+
+                    if (findings.toInteger() > 0) {
+                        currentBuild.result = 'UNSTABLE'
+                        echo "⚠️ Se detectaron secretos en el código."
+                    } else {
+                        echo "✅ No se detectaron secretos."
+                    }
+                }
+            }
+        }
+
+        stage('Archivar reporte (persistir JSON en Jenkins)') {
+            steps {
+                archiveArtifacts artifacts: "trufflehog_report.json", onlyIfSuccessful: false
+                echo "Reporte archivado como artefacto: trufflehog_report.json"
+            }
+        }
+
+        stage('Remediación automática (opcional)') {
+            when {
+                expression { currentBuild.result == 'UNSTABLE' }
+            }
+            steps {
+                echo "Se detectaron secretos, remediación automática pendiente (opcional)."
+            }
+        }
+    }
+
+    post {
+        always {
+            echo "Fin del pipeline. Revisa los artefactos (trufflehog_report.json) en la build."
+        }
+        failure {
+            echo "Pipeline fallido."
+        }
+    }
+}
