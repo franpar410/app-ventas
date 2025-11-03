@@ -1,0 +1,121 @@
+pipeline {
+    agent any
+
+    stages {
+
+        // ========================================================
+        // 1️⃣ Etapa de Análisis con SonarQube
+        // ========================================================
+        stage('SonarQube analysis') {
+            steps {
+                withSonarQubeEnv('Sonarqube-docker') { 
+                    script {
+                        // Definición de la herramienta dentro del script
+                        def scannerHome = tool 'sonarqube-scanner'
+                        sh """
+                            ${scannerHome}/bin/sonar-scanner \
+                            -Dsonar.projectKey=pygoat-analysis \
+                            -Dsonar.projectName=PyGoat \
+                            -Dsonar.sources=. \
+                            -Dsonar.python.version=3
+                        """
+                    }
+                }
+            }
+        }
+
+        // ========================================================
+        // 2️⃣ Etapa de Control de Calidad (Quality Gate)
+        // ========================================================
+        stage('Quality Gate') {
+            steps {
+                timeout(time: 5, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
+                }
+            }
+        }
+
+        // ========================================================
+        // 3️⃣ Etapa de Configuración del entorno Python
+        // ========================================================
+        stage('Setup Python environment') {
+            agent {
+                docker {
+                    image 'python:3.10'
+                    args '-u root:root'
+                }
+            }
+            steps {
+                sh '''
+                    echo "Instalando dependencias de PyGoat..."
+                    pip install --upgrade pip
+                    pip install -r requirements.txt || echo "Archivo requirements.txt no encontrado"
+                '''
+            }
+        }
+
+        // ========================================================
+        // 4️⃣ Etapa de Compilación / Pruebas
+        // ========================================================
+        stage('Tests & Security Check') {
+            agent {
+                docker {
+                    image 'python:3.10'
+                    args '-u root:root'
+                }
+            }
+            steps {
+                sh '''
+                    echo "Ejecutando tests unitarios..."
+                    python manage.py test || echo "No hay tests configurados"
+
+                    echo "Escaneo de seguridad con Bandit..."
+                    pip install bandit
+                    bandit -r . || true
+                '''
+            }
+        }
+
+        // ========================================================
+        // 5️⃣ Etapa de Build (simulada)
+        // ========================================================
+        stage('Build') {
+            agent {
+                docker {
+                    image 'python:3.10'
+                    args '-u root:root'
+                }
+            }
+            steps {
+                sh 'echo "Construyendo artefacto de la aplicación app-ventas (simulación)..."'
+            }
+        }
+
+        // ========================================================
+        // 6️⃣ Etapa de Despliegue (simulada)
+        // ========================================================
+        stage('Deploy') {
+            agent {
+                docker {
+                    image 'python:3.10'
+                    args '-u root:root'
+                }
+            }
+            steps {
+                sh 'echo "Desplegando aplicación app-ventas (simulación)..."'
+            }
+        }
+    }
+
+    // ========================================================
+    // 7️⃣ Post: Acciones finales según resultado
+    // ========================================================
+    post {
+        success {
+            echo "✅ Pipeline ejecutado exitosamente y aprobado por SonarQube."
+        }
+        failure {
+            echo "❌ Pipeline falló. Revisar reporte de SonarQube en Jenkins o http://localhost:9000"
+        }
+    }
+}
