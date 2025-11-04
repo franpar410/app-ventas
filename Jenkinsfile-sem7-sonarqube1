@@ -47,7 +47,7 @@ pipeline {
             }
             steps {
                 sh '''
-                    echo "Instalando dependencias de PyGoat..."
+                    echo "Instalando dependencias de App-ventas..."
                     pip install --upgrade pip
                     pip install -r requirements.txt || echo "Archivo requirements.txt no encontrado"
                 '''
